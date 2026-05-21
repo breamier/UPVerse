@@ -1,0 +1,8 @@
+langchain
+langchain-ollama
+langchain-chroma
+pandas
+langchain-text-splitters
+requests
+beautifulsoup4
+pymupdf
