@@ -8,7 +8,8 @@ from main import (
     chain,
     chat_history,
     format_chat_history,
-    MAX_HISTORY
+    MAX_HISTORY,
+    run_upverse
 )
 
 # PAGE CONFIG
@@ -18,9 +19,28 @@ st.set_page_config(
     layout="centered"
 )
 
+# CSS
+st.markdown("""
+<style>
+.main-title {
+    font-size: 3.8rem;
+    font-weight: 700;
+    color: #8D1436;
+    text-align: center;
+    letter-spacing: -1px;
+}
+.main-subtitle {
+    text-align: center;
+    opacity: 0.75;
+    margin-bottom: 2rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# HEADER
 st.logo("assets/upvlogo.png")
-st.title("UPVerse")
-st.caption("University of the Philippines Visayas AI Assistant")
+st.markdown('<div class="main-title">UPVerse</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-subtitle">University of the Philippines Visayas AI Assistant</div>', unsafe_allow_html=True)
 
 # INIT SESSION STATE
 if "messages" not in st.session_state:
@@ -31,9 +51,12 @@ if "messages" not in st.session_state:
         "content": "Hi! I'm UPVerse, your AI assistant for the University of the Philippines Visayas. How can I help you today?"
     })
 
-# DISPLAY CHAT HISTORY
+# AVATARS
+AVATARS = {"user": "assets/user.png", "assistant": "assets/chatbot.png"}
+
+# DISPLAY CHAT
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
+    with st.chat_message(msg["role"], avatar=AVATARS[msg["role"]]):
         st.write(msg["content"])
 
 # INPUT BOX
@@ -48,39 +71,14 @@ if question:
         "content": question
     })
 
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar=AVATARS["user"]):
         st.write(question)
 
-    # FORMAT HISTORY
-    recent_messages = chat_history.messages[-MAX_HISTORY:]
-    history_text = format_chat_history(recent_messages)
-
-    # RETRIEVAL
-    retrieval_query = f"""
-        Conversation:
-        {history_text}
-
-        Current Question:
-        {question}
-        """
-
-    docs = retriever.invoke(retrieval_query)
-
-    context = "\n\n".join([
-        f"SOURCE: {doc.metadata.get('url', 'Unknown')}\n\n{doc.page_content}"
-        for doc in docs
-    ])
 
     # CALL LLM
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant",  avatar=AVATARS["assistant"]):
         with st.spinner("Thinking..."):
-
-            result = chain.invoke({
-                "context": context,
-                "question": question,
-                "history": history_text
-            })
-
+            result, docs = run_upverse(question)
             st.write(result)
 
             
@@ -88,15 +86,6 @@ if question:
             with st.expander("Sources"):
                 for i, doc in enumerate(docs):
                     st.write(f"{i+1}. {doc.metadata.get('url', 'Unknown')}")
-
-    # SAVE MEMORY
-    chat_history.add_message(
-        HumanMessage(content=question)
-    )
-
-    chat_history.add_message(
-        AIMessage(content=result)
-    )
 
     st.session_state.messages.append({
         "role": "assistant",
